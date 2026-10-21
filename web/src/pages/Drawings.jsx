@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 
@@ -16,6 +16,17 @@ const FIELDS = [
   ['anotacoes', 'Anotações']
 ];
 
+const EXTRA_COLS = [
+  ['ultima_revisao', 'Rev.'],
+  ['has_attachment', 'Anexo'],
+  ['updated_at', 'Atualizado']
+];
+
+const ALL_COLS = [...FIELDS, ...EXTRA_COLS];
+const DEFAULT_ORDER = ALL_COLS.map(([k]) => k);
+const LABELS = Object.fromEntries(ALL_COLS);
+const PAGE_SIZES = [10, 20, 30, 40, 50, 100];
+
 const EMPTY = { codigo: '', nome: '', descricao: '', desenhista: '', projetista: '', empresa: '', planta: '', formato_folha: '', tag: '', os: '', anotacoes: '' };
 
 export default function Drawings() {
@@ -25,22 +36,71 @@ export default function Drawings() {
   const [hasAttachment, setHasAttachment] = useState('');
   const [data, setData] = useState({ total: 0, items: [] });
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [sort, setSort] = useState('updated_at');
   const [dir, setDir] = useState('desc');
   const [error, setError] = useState('');
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [selected, setSelected] = useState([]);
+  const [user, setUser] = useState(null);
+  const [colConf, setColConf] = useState(null); // { order: [keys], hidden: [keys] }
+  const [showCols, setShowCols] = useState(false);
   const nav = useNavigate();
 
-  const pageSize = 25;
+  const colsKey = 'cadbank-cols:' + (user?.username || 'default');
 
-  const load = async (p = page) => {
+  useEffect(() => {
+    api('/auth/me').then(r => setUser(r.user || r)).catch(() => setUser({ username: 'default' }));
+  }, []);
+
+  useEffect(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem(colsKey));
+      if (s && Array.isArray(s.order)) setColConf(s);
+    } catch { /* ignore */ }
+  }, [colsKey]);
+
+  const saveConf = (conf) => {
+    setColConf(conf);
+    try { localStorage.setItem(colsKey, JSON.stringify(conf)); } catch { /* ignore */ }
+  };
+
+  const columns = useMemo(() => {
+    const order = (colConf?.order || []).filter(k => LABELS[k]);
+    for (const k of DEFAULT_ORDER) if (!order.includes(k)) order.push(k);
+    const hidden = colConf?.hidden || [];
+    return order.map(k => ({ key: k, label: LABELS[k], visible: !hidden.includes(k) }));
+  }, [colConf]);
+
+  const visibleCols = columns.filter(c => c.visible);
+
+  const toggleCol = (key) => {
+    const hidden = new Set(colConf?.hidden || []);
+    hidden.has(key) ? hidden.delete(key) : hidden.add(key);
+    saveConf({ order: columns.map(c => c.key), hidden: [...hidden] });
+  };
+
+  const moveCol = (key, delta) => {
+    const order = columns.map(c => c.key);
+    const i = order.indexOf(key);
+    const j = i + delta;
+    if (j < 0 || j >= order.length) return;
+    [order[i], order[j]] = [order[j], order[i]];
+    saveConf({ order, hidden: colConf?.hidden || [] });
+  };
+
+  const resetCols = () => saveConf({ order: DEFAULT_ORDER, hidden: [] });
+
+  const clickSort = (key) => {
+    if (sort === key) setDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSort(key); setDir('asc'); }
+  };
+
+  const load = async (p = page, ps = pageSize) => {
     setError('');
     try {
-      const params = new URLSearchParams({
-        simple, sort, dir, page: p, pageSize
-      });
+      const params = new URLSearchParams({ simple, sort, dir, page: p, pageSize: ps });
       if (hasAttachment) params.set('hasAttachment', hasAttachment);
       const active = criterias.filter(c => c.field && c.value);
       if (active.length) params.set('criterias', JSON.stringify(active));
@@ -51,7 +111,7 @@ export default function Drawings() {
     }
   };
 
-  useEffect(() => { load(1); setPage(1); }, [sort, dir]);
+  useEffect(() => { load(1, pageSize); setPage(1); }, [sort, dir, pageSize]);
 
   const search = (e) => {
     e?.preventDefault();
@@ -75,14 +135,6 @@ export default function Drawings() {
     }
   };
 
-  const exportBatch = async (format) => {
-    if (!selected.length) return alert('Selecione desenhos na lista');
-    try {
-      const { downloadFile } = await import('../api');
-      await downloadFile('/batch/export', 'cadbank-export.zip');
-    } catch {}
-  };
-
   const toggleAll = () => {
     if (selected.length === data.items.length) setSelected([]);
     else setSelected(data.items.map(i => i.id));
@@ -91,6 +143,28 @@ export default function Drawings() {
   const toggle = (id) => {
     setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   };
+
+  const cell = (d, key) => {
+    switch (key) {
+      case 'codigo':
+        return <Link to={'/drawings/' + d.id} onClick={e => e.stopPropagation()}><b>{d.codigo}</b></Link>;
+      case 'ultima_revisao':
+        return d.ultima_revisao ? 'R' + d.ultima_revisao : '—';
+      case 'has_attachment':
+        return <>
+          {d.has_attachment
+            ? <span className="badge attached">📎 anexado</span>
+            : <span className="badge missing">sem anexo</span>}
+          {d.has_pdf ? <span className="badge pdf" style={{ marginLeft: 4 }}>PDF</span> : null}
+        </>;
+      case 'updated_at':
+        return <span className="muted">{d.updated_at}</span>;
+      default:
+        return d[key];
+    }
+  };
+
+  const sortIcon = (key) => (sort === key ? (dir === 'asc' ? ' ▲' : ' ▼') : '');
 
   return (
     <div>
@@ -107,8 +181,29 @@ export default function Drawings() {
             {showAdv ? 'Ocultar avançada' : 'Busca avançada'}
           </button>
         </form>
+        <button className="secondary" onClick={() => setShowCols(!showCols)}>⚙ Colunas</button>
         <button onClick={() => setShowNew(true)}>+ Novo slot</button>
       </div>
+
+      {showCols && (
+        <div className="card mb" style={{ maxWidth: 460 }}>
+          <h3>Colunas da lista</h3>
+          <p className="muted" style={{ marginTop: -6 }}>Marque para exibir e use as setas para reordenar. Fica salvo para o seu usuário.</p>
+          {columns.map(c => (
+            <div className="row" key={c.key} style={{ justifyContent: 'space-between', marginBottom: 4 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input type="checkbox" checked={c.visible} onChange={() => toggleCol(c.key)} />
+                {c.label}
+              </label>
+              <span className="row" style={{ gap: 4 }}>
+                <button type="button" className="secondary" style={{ padding: '2px 8px' }} onClick={() => moveCol(c.key, -1)}>↑</button>
+                <button type="button" className="secondary" style={{ padding: '2px 8px' }} onClick={() => moveCol(c.key, 1)}>↓</button>
+              </span>
+            </div>
+          ))}
+          <button type="button" className="secondary mt" onClick={resetCols}>Restaurar padrão</button>
+        </div>
+      )}
 
       {showAdv && (
         <div className="card mb">
@@ -170,48 +265,31 @@ export default function Drawings() {
           <thead>
             <tr>
               <th style={{ width: 30 }}><input type="checkbox" checked={selected.length > 0 && selected.length === data.items.length} onChange={toggleAll} /></th>
-              <th style={{ cursor: 'pointer' }} onClick={() => { setSort('codigo'); setDir(dir === 'asc' ? 'desc' : 'asc'); }}>Código</th>
-              <th style={{ cursor: 'pointer' }} onClick={() => { setSort('nome'); setDir(dir === 'asc' ? 'desc' : 'asc'); }}>Nome</th>
-              <th>Desenhista</th>
-              <th>Projetista</th>
-              <th>Cliente</th>
-              <th>Planta</th>
-              <th>Formato</th>
-              <th>Tag</th>
-              <th>OS</th>
-              <th>Rev.</th>
-              <th>Anexo</th>
-              <th>Atualizado</th>
+              {visibleCols.map(c => (
+                <th key={c.key} className="sortable-th" style={{ cursor: 'pointer', whiteSpace: 'nowrap' }} onClick={() => clickSort(c.key)}>
+                  {c.label}{sortIcon(c.key)}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {data.items.map(d => (
               <tr key={d.id} style={{ cursor: 'pointer' }} onClick={() => nav('/drawings/' + d.id)}>
                 <td onClick={e => e.stopPropagation()}><input type="checkbox" checked={selected.includes(d.id)} onChange={() => toggle(d.id)} /></td>
-                <td><Link to={'/drawings/' + d.id} onClick={e => e.stopPropagation()}><b>{d.codigo}</b></Link></td>
-                <td>{d.nome}</td>
-                <td>{d.desenhista}</td>
-                <td>{d.projetista}</td>
-                <td>{d.empresa}</td>
-                <td>{d.planta}</td>
-                <td>{d.formato_folha}</td>
-                <td>{d.tag}</td>
-                <td>{d.os}</td>
-                <td>{d.ultima_revisao ? 'R' + d.ultima_revisao : '—'}</td>
-                <td>
-                  {d.has_attachment
-                    ? <span className="badge attached">📎 anexado</span>
-                    : <span className="badge missing">sem anexo</span>}
-                  {d.has_pdf ? <span className="badge pdf" style={{ marginLeft: 4 }}>PDF</span> : null}
-                </td>
-                <td className="muted">{d.updated_at}</td>
+                {visibleCols.map(c => <td key={c.key}>{cell(d, c.key)}</td>)}
               </tr>
             ))}
-            {!data.items.length && <tr><td colSpan={13} className="muted" style={{ textAlign: 'center', padding: 30 }}>Nenhum desenho encontrado</td></tr>}
+            {!data.items.length && <tr><td colSpan={visibleCols.length + 1} className="muted" style={{ textAlign: 'center', padding: 30 }}>Nenhum desenho encontrado</td></tr>}
           </tbody>
         </table>
         <div className="pagination">
           <span>{data.total} registro(s)</span>
+          <label className="muted" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            Itens por página
+            <select value={pageSize} onChange={e => setPageSize(parseInt(e.target.value, 10))} style={{ width: 'auto' }}>
+              {PAGE_SIZES.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
           <button className="secondary" disabled={page <= 1} onClick={() => { const p = page - 1; setPage(p); load(p); }}>‹</button>
           <span>{page} / {Math.max(1, Math.ceil(data.total / pageSize))}</span>
           <button className="secondary" disabled={page >= Math.ceil(data.total / pageSize)} onClick={() => { const p = page + 1; setPage(p); load(p); }}>›</button>

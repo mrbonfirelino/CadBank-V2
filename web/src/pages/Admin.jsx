@@ -176,9 +176,18 @@ function Users() {
                     if (p) update(u, { password: p });
                   }}>Senha</button>
                   {u.username !== 'admin' && (
-                    <button className="danger" onClick={() => update(u, { active: u.active ? 0 : 1 })}>
-                      {u.active ? 'Desativar' : 'Ativar'}
-                    </button>
+                    <>
+                      <button className="secondary" onClick={() => update(u, { active: u.active ? 0 : 1 })}>
+                        {u.active ? 'Desativar' : 'Ativar'}
+                      </button>
+                      <button className="danger" onClick={async () => {
+                        if (!confirm(`Excluir definitivamente o usuário "${u.username}"? Ele não poderá mais entrar e os registros ficarão sem autoria.`)) return;
+                        try {
+                          await api('/auth/users/' + u.id, { method: 'DELETE' });
+                          load();
+                        } catch (e) { alert(e.message); }
+                      }}>🗑 Excluir</button>
+                    </>
                   )}
                 </td>
               </tr>

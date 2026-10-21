@@ -54,7 +54,13 @@ router.get('/', requireAuth, (req, res) => {
   } catch { /* ignore */ }
 
   const { whereSql, params } = buildAdvancedQuery(criterias, hasAttachment, simple || '');
-  const sortCol = { updated_at: 'd.updated_at', created_at: 'd.created_at', codigo: 'd.codigo', nome: 'd.nome' }[sort] || 'd.updated_at';
+  const SORTABLE = {
+    updated_at: 'd.updated_at', created_at: 'd.created_at', codigo: 'd.codigo', nome: 'd.nome',
+    descricao: 'd.descricao', desenhista: 'd.desenhista', projetista: 'd.projetista',
+    empresa: 'd.empresa', planta: 'd.planta', formato_folha: 'd.formato_folha', tag: 'd.tag', os: 'd.os',
+    ultima_revisao: 'ultima_revisao', has_attachment: 'has_attachment'
+  };
+  const sortCol = SORTABLE[sort] || 'd.updated_at';
   const sortDir = String(dir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
   const limit = Math.min(parseInt(pageSize, 10) || 25, 200);
   const offset = (Math.max(parseInt(page, 10) || 1, 1) - 1) * limit;

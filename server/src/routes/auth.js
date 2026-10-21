@@ -62,7 +62,13 @@ router.delete('/users/:id', requireAuth, requireRole('admin'), (req, res) => {
   const u = db.prepare('SELECT * FROM users WHERE id=?').get(req.params.id);
   if (!u) return res.status(404).json({ error: 'Não encontrado' });
   if (u.username === 'admin') return res.status(400).json({ error: 'Não é possível excluir o admin padrão' });
-  db.prepare('UPDATE users SET active=0 WHERE id=?').run(u.id);
+  if (req.user.id === u.id) return res.status(400).json({ error: 'Não é possível excluir o seu próprio usuário' });
+  db.transaction(() => {
+    db.prepare('UPDATE comments SET user_id=NULL WHERE user_id=?').run(u.id);
+    db.prepare('UPDATE revisions SET uploaded_by=NULL WHERE uploaded_by=?').run(u.id);
+    db.prepare('UPDATE drawings SET created_by=NULL WHERE created_by=?').run(u.id);
+    db.prepare('DELETE FROM users WHERE id=?').run(u.id);
+  })();
   res.json({ ok: true });
 });
 

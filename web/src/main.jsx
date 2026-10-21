@@ -20,6 +20,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<RequireAuth><App /></RequireAuth>}>
         <Route index element={<Drawings />} />
+        <Route path="drawings" element={<Drawings />} />
         <Route path="drawings/:id" element={<DrawingDetail />} />
         <Route path="admin" element={<Admin />} />
         <Route path="batch" element={<Batch />} />
