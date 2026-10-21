@@ -36,7 +36,7 @@ export default function Batch() {
           Opcionalmente inclua um <code>meta.csv</code> (separador <code>;</code>) com os metadados:
         </p>
         <code className="mb" style={{ display: 'block', background: 'var(--panel2)', padding: 10, borderRadius: 6 }}>
-          codigo;nome;descricao;desenhista;projetista;empresa;planta;os;anotacoes
+          codigo;nome;descricao;desenhista;projetista;empresa;planta;formato_folha;tag;os;anotacoes
         </code>
         <a href="/api/batch/import/template?token=" onClick={async (e) => {
           e.preventDefault();

@@ -12,6 +12,8 @@ const SEARCHABLE = {
   projetista: 'd.projetista',
   empresa: 'd.empresa',
   planta: 'd.planta',
+  formato_folha: 'd.formato_folha',
+  tag: 'd.tag',
   os: 'd.os',
   anotacoes: 'd.anotacoes'
 };
@@ -82,7 +84,7 @@ router.get('/:id', requireAuth, (req, res) => {
 
 function cleanFields(body) {
   const f = {};
-  for (const k of ['codigo', 'nome', 'descricao', 'desenhista', 'projetista', 'empresa', 'planta', 'os', 'anotacoes']) {
+  for (const k of ['codigo', 'nome', 'descricao', 'desenhista', 'projetista', 'empresa', 'planta', 'formato_folha', 'tag', 'os', 'anotacoes']) {
     f[k] = typeof body[k] === 'string' ? body[k].trim() : '';
   }
   return f;
@@ -92,8 +94,8 @@ router.post('/', requireAuth, requireRole('admin', 'editor'), (req, res) => {
   const f = cleanFields(req.body || {});
   if (!f.codigo || !f.nome) return res.status(400).json({ error: 'Código e Nome são obrigatórios' });
   try {
-    const info = db.prepare(`INSERT INTO drawings (codigo, nome, descricao, desenhista, projetista, empresa, planta, os, anotacoes, created_by)
-      VALUES (@codigo, @nome, @descricao, @desenhista, @projetista, @empresa, @planta, @os, @anotacoes, @created_by)`)
+    const info = db.prepare(`INSERT INTO drawings (codigo, nome, descricao, desenhista, projetista, empresa, planta, formato_folha, tag, os, anotacoes, created_by)
+      VALUES (@codigo, @nome, @descricao, @desenhista, @projetista, @empresa, @planta, @formato_folha, @tag, @os, @anotacoes, @created_by)`)
       .run({ ...f, created_by: req.user.id });
     res.json({ id: info.lastInsertRowid });
   } catch (e) {
@@ -108,7 +110,7 @@ router.put('/:id', requireAuth, requireRole('admin', 'editor'), (req, res) => {
   if (!f.codigo || !f.nome) return res.status(400).json({ error: 'Código e Nome são obrigatórios' });
   try {
     db.prepare(`UPDATE drawings SET codigo=@codigo, nome=@nome, descricao=@descricao, desenhista=@desenhista,
-      projetista=@projetista, empresa=@empresa, planta=@planta, os=@os, anotacoes=@anotacoes,
+      projetista=@projetista, empresa=@empresa, planta=@planta, formato_folha=@formato_folha, tag=@tag, os=@os, anotacoes=@anotacoes,
       updated_at=datetime('now') WHERE id=@id`).run({ ...f, id: d.id });
     res.json({ ok: true });
   } catch {

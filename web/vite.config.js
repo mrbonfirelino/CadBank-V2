@@ -7,7 +7,7 @@ const DWG_WORKER = 'libredwg-parser-worker.js';
 const DWG_WASM = 'libredwg-web.wasm';
 
 export default defineConfig({
-  base: './',
+  base: '/',
   plugins: [
     react(),
     viteStaticCopy({

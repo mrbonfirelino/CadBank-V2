@@ -75,13 +75,15 @@ router.post('/import', requireAuth, requireRole('admin', 'editor'), upload.singl
           projetista: cols[4] || '',
           empresa: cols[5] || '',
           planta: cols[6] || '',
-          os: cols[7] || '',
-          anotacoes: cols[8] || ''
+          formato_folha: cols[7] || '',
+          tag: cols[8] || '',
+          os: cols[9] || '',
+          anotacoes: cols[10] || ''
         };
       }
     }
-    const insertDrawing = db.prepare(`INSERT INTO drawings (codigo, nome, descricao, desenhista, projetista, empresa, planta, os, anotacoes, created_by)
-      VALUES (?,?,?,?,?,?,?,?,?,?)`);
+    const insertDrawing = db.prepare(`INSERT INTO drawings (codigo, nome, descricao, desenhista, projetista, empresa, planta, formato_folha, tag, os, anotacoes, created_by)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
     const insertRev = db.prepare(`INSERT INTO revisions (drawing_id, revisao, original_name, dwg_path, dwg_size, uploaded_by)
       VALUES (?,?,?,?,?,?)`);
     const updDrawing = db.prepare("UPDATE drawings SET updated_at=datetime('now') WHERE id=?");
@@ -98,7 +100,7 @@ router.post('/import', requireAuth, requireRole('admin', 'editor'), upload.singl
       const m = meta[codigo] || {};
       try {
         const info = insertDrawing.run(codigo, m.nome || codigo, m.descricao || '', m.desenhista || '',
-          m.projetista || '', m.empresa || '', m.planta || '', m.os || '', m.anotacoes || '', req.user.id);
+          m.projetista || '', m.empresa || '', m.planta || '', m.formato_folha || '', m.tag || '', m.os || '', m.anotacoes || '', req.user.id);
         const drawingId = info.lastInsertRowid;
         const revId = insertRev.run(drawingId, 1, base, '', 0, req.user.id).lastInsertRowid;
         const dir = revDir(drawingId, revId);
@@ -123,7 +125,7 @@ router.post('/import', requireAuth, requireRole('admin', 'editor'), upload.singl
 // template CSV
 router.get('/import/template', requireAuth, (req, res) => {
   res.type('text/csv; charset=utf-8');
-  res.send('codigo;nome;descricao;desenhista;projetista;empresa;planta;os;anotacoes\nEX-001;Exemplo;Descricao;Joao;Maria;Cliente X;Planta 1;OS 123;obs');
+  res.send('codigo;nome;descricao;desenhista;projetista;empresa;planta;formato_folha;tag;os;anotacoes\nEX-001;Exemplo;Descricao;Joao;Maria;Cliente X;Planta 1;A3;W1A53;OS 123;obs');
 });
 
 module.exports = router;

@@ -10,3 +10,6 @@ build/
 coverage/
 .DS_Store
 Thumbs.db
+
+# DWGs grandes (>100MB nao pode no GitHub)
+DWGs para exemplo/PE223002 DWG.DWG

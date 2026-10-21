@@ -74,6 +74,10 @@ cd web && npm install && npm run dev
 
 Para produção, `cd web && npm run build` — o Express serve o `web/dist` automaticamente.
 
+## Roadmap
+
+Veja as melhorias planejadas no [ROADMAP.md](ROADMAP.md).
+
 ## Segurança / licenças
 
 - Senhas com bcrypt; sessões JWT (12h); arquivos só acessíveis autenticado

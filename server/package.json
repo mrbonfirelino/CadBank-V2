@@ -11,7 +11,7 @@
     "adm-zip": "^0.5.16",
     "archiver": "^7.0.1",
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.8.1",
+    "better-sqlite3": "^12.11.1",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",

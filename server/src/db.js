@@ -111,6 +111,15 @@ try {
   console.error('Falha na migração subrev:', e);
 }
 
+// migração: campos herdados do CadBank V1 (formato da folha e tag)
+try {
+  const cols = db.prepare("PRAGMA table_info(drawings)").all().map(c => c.name);
+  if (!cols.includes('formato_folha')) db.exec("ALTER TABLE drawings ADD COLUMN formato_folha TEXT DEFAULT ''");
+  if (!cols.includes('tag')) db.exec("ALTER TABLE drawings ADD COLUMN tag TEXT DEFAULT ''");
+} catch (e) {
+  console.error('Falha na migração formato_folha/tag:', e);
+}
+
 // seed admin
 const admin = db.prepare("SELECT id FROM users WHERE username='admin'").get();
 if (!admin) {

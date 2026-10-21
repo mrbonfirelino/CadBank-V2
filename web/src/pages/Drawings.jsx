@@ -10,11 +10,13 @@ const FIELDS = [
   ['projetista', 'Projetista'],
   ['empresa', 'Empresa (Cliente)'],
   ['planta', 'Planta'],
+  ['formato_folha', 'Formato da folha'],
+  ['tag', 'Tag'],
   ['os', 'OS'],
   ['anotacoes', 'Anotações']
 ];
 
-const EMPTY = { codigo: '', nome: '', descricao: '', desenhista: '', projetista: '', empresa: '', planta: '', os: '', anotacoes: '' };
+const EMPTY = { codigo: '', nome: '', descricao: '', desenhista: '', projetista: '', empresa: '', planta: '', formato_folha: '', tag: '', os: '', anotacoes: '' };
 
 export default function Drawings() {
   const [simple, setSimple] = useState('');
@@ -174,6 +176,8 @@ export default function Drawings() {
               <th>Projetista</th>
               <th>Cliente</th>
               <th>Planta</th>
+              <th>Formato</th>
+              <th>Tag</th>
               <th>OS</th>
               <th>Rev.</th>
               <th>Anexo</th>
@@ -190,6 +194,8 @@ export default function Drawings() {
                 <td>{d.projetista}</td>
                 <td>{d.empresa}</td>
                 <td>{d.planta}</td>
+                <td>{d.formato_folha}</td>
+                <td>{d.tag}</td>
                 <td>{d.os}</td>
                 <td>{d.ultima_revisao ? 'R' + d.ultima_revisao : '—'}</td>
                 <td>
@@ -201,7 +207,7 @@ export default function Drawings() {
                 <td className="muted">{d.updated_at}</td>
               </tr>
             ))}
-            {!data.items.length && <tr><td colSpan={11} className="muted" style={{ textAlign: 'center', padding: 30 }}>Nenhum desenho encontrado</td></tr>}
+            {!data.items.length && <tr><td colSpan={13} className="muted" style={{ textAlign: 'center', padding: 30 }}>Nenhum desenho encontrado</td></tr>}
           </tbody>
         </table>
         <div className="pagination">
@@ -223,6 +229,13 @@ export default function Drawings() {
               <div className="field"><label>Projetista</label><input value={form.projetista} onChange={e => setForm({ ...form, projetista: e.target.value })} /></div>
               <div className="field"><label>Empresa (Cliente)</label><input value={form.empresa} onChange={e => setForm({ ...form, empresa: e.target.value })} /></div>
               <div className="field"><label>Planta</label><input value={form.planta} onChange={e => setForm({ ...form, planta: e.target.value })} /></div>
+              <div className="field"><label>Formato da folha</label>
+                <select value={form.formato_folha} onChange={e => setForm({ ...form, formato_folha: e.target.value })}>
+                  <option value="">—</option>
+                  {['A0','A1','A2','A3','A4','A5','A6','A7','A8'].map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </div>
+              <div className="field"><label>Tag</label><input value={form.tag} onChange={e => setForm({ ...form, tag: e.target.value })} /></div>
               <div className="field"><label>OS</label><input value={form.os} onChange={e => setForm({ ...form, os: e.target.value })} /></div>
             </div>
             <div className="field"><label>Descrição</label><textarea value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} /></div>

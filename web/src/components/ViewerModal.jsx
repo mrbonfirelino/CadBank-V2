@@ -59,6 +59,7 @@ export default function ViewerModal({ url, filename, onClose }) {
   const containerRef = useRef(null);
   const [status, setStatus] = useState('Carregando visualizador...');
   const [error, setError] = useState('');
+  const [layoutNotice, setLayoutNotice] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,8 +98,15 @@ export default function ViewerModal({ url, filename, onClose }) {
         }
 
         setStatus(`Processando DWG versão ${sig} (pode levar alguns segundos)...`);
-        const ok = await manager.openDocument(filename, buffer, { minimumChunkSize: 1000 });
-        if (!ok) {
+        // openDocument pode não resolver (espera por fontes/glyphs deferidos) mesmo
+        // com o db/view já prontos — por isso o race com timeout.
+        const OPEN_TIMEOUT_MS = 60000;
+        let ok = false;
+        await Promise.race([
+          manager.openDocument(filename, buffer, { minimumChunkSize: 1000 }).then((r) => { ok = r === true; }).catch(() => {}),
+          new Promise((res) => setTimeout(res, OPEN_TIMEOUT_MS)),
+        ]);
+        if (!ok && !manager.curDocument) {
           setError(`Falha ao processar o desenho (versão ${sig}). A versão do DWG pode não ser suportada pelo visualizador. O erro foi registrado nos logs.`);
           api('/logs/client', {
             method: 'POST',
@@ -107,6 +115,48 @@ export default function ViewerModal({ url, filename, onClose }) {
               context: { url, filename, dwgVersion: sig, sizeBytes: buffer.byteLength }
             })
           }).catch(() => {});
+        }
+        // Auto-detecção: desenhos de template costumam ter o conteúdo apenas no
+        // paper space (layout). Se o modelspace estiver vazio e houver geometry
+        // no paper space, alterna para o layout e re-renderiza.
+        try {
+          const doc = manager.curDocument;
+          const db = doc?.database;
+          const bt = db?.tables?.blockTable;
+          const countEntities = (rec) => {
+            if (!rec || typeof rec.newIterator !== 'function') return 0;
+            let n = 0;
+            try { for (const e of rec.newIterator()) { if (e?.type !== 'Viewport') n++; } } catch { /* ignore */ }
+            return n;
+          };
+          if (bt && countEntities(bt.modelSpace) === 0) {
+            const ps = bt.getAt('*Paper_Space');
+            if (ps && countEntities(ps) > 0) {
+              // Troca manual de layout (replica o handler de layoutSwitched do AcTrView2d),
+              // pois o layoutManager de uma import própria pode ser outra instância de módulo.
+              const view = manager.curView;
+              db.currentSpaceId = ps.objectId;
+              if (view) {
+                view.activeLayoutBtrId = ps.objectId;
+                try { view.createLayoutViewIfNeeded?.(ps.objectId); } catch { /* ignore */ }
+                try { view.loadLayoutEntitiesIfNeeded?.(ps.objectId); } catch { /* ignore */ }
+                try { view.refreshCanvasBackgroundForActiveLayout?.(); } catch { /* ignore */ }
+                view._isDirty = true;
+                // enquadramento fire-and-forget do layout
+                try { view.zoomToFitDrawing?.(30000, ps.objectId); } catch { /* ignore */ }
+              }
+              setLayoutNotice(true);
+              api('/logs/client', {
+                method: 'POST',
+                body: JSON.stringify({
+                  message: `Viewer: modelspace vazio, exibindo paper space (${filename})`,
+                  context: { url, filename, dwgVersion: sig }
+                })
+              }).catch(() => {});
+            }
+          }
+        } catch (switchErr) {
+          console.warn('[Viewer] auto-detecção paper space falhou:', switchErr?.message);
         }
         setStatus('');
       } catch (e) {
@@ -132,6 +182,11 @@ export default function ViewerModal({ url, filename, onClose }) {
           </div>
         </div>
         {error && <div className="error-msg">{error}</div>}
+        {layoutNotice && (
+          <div className="notice-msg">
+            Este desenho não tem geometria no modelspace — exibindo o paper space (layout). Use zoom/pan para navegar.
+          </div>
+        )}
         <div className="viewer-container" ref={containerRef} />
         <div className="muted mt">Scroll = zoom · Botão do meio = pan · Clique = selecionar</div>
       </div>

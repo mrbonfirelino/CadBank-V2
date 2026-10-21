@@ -3,7 +3,7 @@ import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom
 import { api, downloadFile, fileUrl } from '../api';
 import ViewerModal from '../components/ViewerModal';
 
-const EMPTY = { codigo: '', nome: '', descricao: '', desenhista: '', projetista: '', empresa: '', planta: '', os: '', anotacoes: '' };
+const EMPTY = { codigo: '', nome: '', descricao: '', desenhista: '', projetista: '', empresa: '', planta: '', formato_folha: '', tag: '', os: '', anotacoes: '' };
 
 export default function DrawingDetail() {
   const { id } = useParams();
@@ -148,6 +148,13 @@ export default function DrawingDetail() {
             <div className="field"><label>Projetista</label><input value={form.projetista} onChange={e => setForm({ ...form, projetista: e.target.value })} /></div>
             <div className="field"><label>Empresa (Cliente)</label><input value={form.empresa} onChange={e => setForm({ ...form, empresa: e.target.value })} /></div>
             <div className="field"><label>Planta</label><input value={form.planta} onChange={e => setForm({ ...form, planta: e.target.value })} /></div>
+            <div className="field"><label>Formato da folha</label>
+              <select value={form.formato_folha} onChange={e => setForm({ ...form, formato_folha: e.target.value })}>
+                <option value="">—</option>
+                {['A0','A1','A2','A3','A4','A5','A6','A7','A8'].map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+            <div className="field"><label>Tag</label><input value={form.tag} onChange={e => setForm({ ...form, tag: e.target.value })} /></div>
             <div className="field"><label>OS</label><input value={form.os} onChange={e => setForm({ ...form, os: e.target.value })} /></div>
           </div>
           <div className="field"><label>Descrição</label><textarea value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} /></div>
@@ -165,6 +172,8 @@ export default function DrawingDetail() {
             <div><label>Projetista</label><div>{drawing.projetista || '—'}</div></div>
             <div><label>Empresa (Cliente)</label><div>{drawing.empresa || '—'}</div></div>
             <div><label>Planta</label><div>{drawing.planta || '—'}</div></div>
+            <div><label>Formato da folha</label><div>{drawing.formato_folha || '—'}</div></div>
+            <div><label>Tag</label><div>{drawing.tag || '—'}</div></div>
             <div><label>OS</label><div>{drawing.os || '—'}</div></div>
           </div>
           <div className="mt"><label>Descrição</label><div>{drawing.descricao || '—'}</div></div>

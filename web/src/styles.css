@@ -53,6 +53,7 @@ tr:hover td { background: rgba(59, 130, 246, 0.06); }
 .badge.pdf { background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239,68,68,.35); }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .error-msg { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.4); color: #f87171; padding: 10px; border-radius: 6px; margin-bottom: 12px; }
+.notice-msg { background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.4); color: #93c5fd; padding: 10px; border-radius: 6px; margin-bottom: 12px; }
 .success-msg { background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.4); color: var(--ok); padding: 10px; border-radius: 6px; margin-bottom: 12px; }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
 .tabs button { background: transparent; color: var(--muted); border-radius: 6px 6px 0 0; }
