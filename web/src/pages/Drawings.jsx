@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 
@@ -21,6 +21,8 @@ const EXTRA_COLS = [
   ['has_attachment', 'Anexo'],
   ['updated_at', 'Atualizado']
 ];
+
+const ADMIN_COL = ['id', 'ID (interno)'];
 
 const ALL_COLS = [...FIELDS, ...EXTRA_COLS];
 const DEFAULT_ORDER = ALL_COLS.map(([k]) => k);
@@ -49,7 +51,8 @@ export default function Drawings() {
   const [user, setUser] = useState(null);
   const [colConf, setColConf] = useState(null);
   const [dragIndex, setDragIndex] = useState(null);
-  const [dragColKey, setDragColKey] = useState(null); // { order: [keys], hidden: [keys] }
+  const [dragColKey, setDragColKey] = useState(null);
+  const newFileRef = useRef(null); // { order: [keys], hidden: [keys] }
   const [showCols, setShowCols] = useState(false);
   const nav = useNavigate();
 
@@ -72,11 +75,14 @@ export default function Drawings() {
   };
 
   const columns = useMemo(() => {
-    const order = (colConf?.order || []).filter(k => LABELS[k]);
-    for (const k of DEFAULT_ORDER) if (!order.includes(k)) order.push(k);
+    const isAdmin = user?.role === 'admin';
+    const available = isAdmin ? [...ALL_COLS, ADMIN_COL] : ALL_COLS;
+    const labels = Object.fromEntries(available);
+    const order = (colConf?.order || []).filter(k => labels[k]);
+    for (const [k] of available) if (!order.includes(k)) order.push(k);
     const hidden = colConf?.hidden || [];
-    return order.map(k => ({ key: k, label: LABELS[k], visible: !hidden.includes(k) }));
-  }, [colConf]);
+    return order.map(k => ({ key: k, label: labels[k], visible: !hidden.includes(k) }));
+  }, [colConf, user]);
 
   const visibleCols = columns.filter(c => c.visible);
 
@@ -146,8 +152,24 @@ export default function Drawings() {
     e.preventDefault();
     try {
       const d = await api('/drawings', { method: 'POST', body: JSON.stringify(form) });
+      // se o usuário anexou um DWG na criação, sobe como Revisão 0
+      const file = newFileRef.current && newFileRef.current.files && newFileRef.current.files[0];
+      if (file) {
+        const fd = new FormData();
+        fd.append('dwg', file);
+        fd.append('revisao', '0');
+        try {
+          await api(`/drawings/${d.id}/revisions`, { method: 'POST', body: fd });
+        } catch (upErr) {
+          // slot criado; falha do upload não perde o cadastro
+          nav('/drawings/' + d.id);
+          setError('Slot criado, mas o upload do DWG falhou: ' + upErr.message + '. Envie o arquivo na página do desenho.');
+          return;
+        }
+      }
       setShowNew(false);
       setForm(EMPTY);
+      if (newFileRef.current) newFileRef.current.value = '';
       nav('/drawings/' + d.id);
     } catch (err) {
       setError(err.message);
@@ -380,6 +402,10 @@ export default function Drawings() {
             </div>
             <div className="field"><label>Descrição</label><textarea value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} /></div>
             <div className="field"><label>Anotações</label><textarea value={form.anotacoes} onChange={e => setForm({ ...form, anotacoes: e.target.value })} /></div>
+            <div className="field">
+              <label>Desenho (DWG/DXF) — opcional, será salvo como <b>Revisão 0</b></label>
+              <input type="file" ref={newFileRef} accept=".dwg,.dxf" />
+            </div>
             <div className="row" style={{ justifyContent: 'flex-end' }}>
               <button type="button" className="secondary" onClick={() => setShowNew(false)}>Cancelar</button>
               <button type="submit">Criar slot</button>

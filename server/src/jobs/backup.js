@@ -87,25 +87,63 @@ router.post('/restore', requireAuth, requireRole('admin'), (req, res) => {
   const p = path.join(BACKUP_DIR, name);
   if (!fs.existsSync(p)) return res.status(404).json({ error: 'Backup não encontrado' });
   try {
-    const zip = new AdmZip(p);
-    const entry = zip.getEntry('cadbank.db');
-    if (!entry) return res.status(400).json({ error: 'Backup sem banco de dados' });
-    // extrai arquivos
-    const filesDir = path.join(DATA_DIR, 'files');
-    zip.getEntries().forEach(e => {
-      if (e.entryName.startsWith('files/')) {
-        const dest = path.join(DATA_DIR, e.entryName);
-        if (e.isDirectory) fs.mkdirSync(dest, { recursive: true });
-        else { fs.mkdirSync(path.dirname(dest), { recursive: true }); fs.writeFileSync(dest, e.getData()); }
-      }
-    });
-    const dbTarget = path.join(DATA_DIR, 'restore-pending.db');
-    fs.writeFileSync(dbTarget, entry.getData());
-    res.json({ ok: true, message: 'Backup extraído. O banco será restaurado ao reiniciar o servidor.' });
+    res.json({ ok: true, ...restoreZip(p) });
   } catch (e) {
     res.status(500).json({ error: String(e.message || e) });
   }
 });
+
+// restauração a partir de um arquivo .zip enviado pelo usuário
+const multer = require('multer');
+const uploadRestore = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, require('../config').TMP_DIR),
+    filename: (req, file, cb) => cb(null, 'restore-' + Date.now() + '-' + file.originalname.replace(/[^\w.\-]/g, '_'))
+  }),
+  limits: { fileSize: 2 * 1024 * 1024 * 1024 }
+});
+
+router.post('/upload-restore', requireAuth, requireRole('admin'), uploadRestore.single('backup'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Envie o arquivo .zip do backup' });
+  try {
+    let zip;
+    try {
+      zip = new AdmZip(req.file.path);
+    } catch {
+      fs.unlink(req.file.path, () => {});
+      return res.status(400).json({ error: 'O arquivo enviado não é um .zip válido' });
+    }
+    if (!zip.getEntry('cadbank.db')) {
+      fs.unlink(req.file.path, () => {});
+      return res.status(400).json({ error: 'O arquivo enviado não é um backup do CadBank (sem cadbank.db)' });
+    }
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const dest = path.join(BACKUP_DIR, `cadbank-backup-importado-${stamp}.zip`);
+    fs.renameSync(req.file.path, dest);
+    res.json({ ok: true, ...restoreZip(dest), file: path.basename(dest) });
+  } catch (e) {
+    try { fs.unlinkSync(req.file.path); } catch {}
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
+function restoreZip(p) {
+  const zip = new AdmZip(p);
+  const entry = zip.getEntry('cadbank.db');
+  if (!entry) throw new Error('Backup sem banco de dados');
+  // extrai arquivos
+  const filesDir = path.join(DATA_DIR, 'files');
+  zip.getEntries().forEach(e => {
+    if (e.entryName.startsWith('files/')) {
+      const dest = path.join(DATA_DIR, e.entryName);
+      if (e.isDirectory) fs.mkdirSync(dest, { recursive: true });
+      else { fs.mkdirSync(path.dirname(dest), { recursive: true }); fs.writeFileSync(dest, e.getData()); }
+    }
+  });
+  const dbTarget = path.join(DATA_DIR, 'restore-pending.db');
+  fs.writeFileSync(dbTarget, entry.getData());
+  return { message: 'Backup extraído. O banco será restaurado ao reiniciar o servidor.' };
+}
 
 reloadCron();
 

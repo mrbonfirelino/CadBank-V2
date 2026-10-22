@@ -57,9 +57,9 @@ router.post('/:id/revisions', requireAuth, requireRole('admin', 'editor'), uploa
   let subrev = 0;
   let subrevision = false;
   const existing = db.prepare('SELECT * FROM revisions WHERE drawing_id=?').all(d.id);
-  const last = existing.reduce((m, r) => (r.revisao > m ? r.revisao : m), 0);
+  const last = existing.reduce((m, r) => (r.revisao > m ? r.revisao : m), -1);
 
-  if (!Number.isInteger(revisao) || revisao < 1) {
+  if (!Number.isInteger(revisao) || revisao < 0) {
     revisao = last + 1;
   } else if (existing.some(r => r.revisao === revisao)) {
     subrev = existing.filter(r => r.revisao === revisao).reduce((m, r) => (r.subrev > m ? r.subrev : m), 0) + 1;

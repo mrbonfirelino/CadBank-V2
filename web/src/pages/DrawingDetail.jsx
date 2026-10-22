@@ -111,6 +111,7 @@ export default function DrawingDetail() {
       <Link to="/">← Voltar à lista</Link>
       <h2 className="mt" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         {drawing.codigo} — {drawing.nome}
+        {me?.role === 'admin' && <span className="badge" title="ID interno do slot (visível apenas para administradores)">ID #{drawing.id}</span>}
         {revisions.some(r => r.dwg_path !== undefined) && latest && <span className="badge attached">📎 anexado</span>}
         {latest?.pdf_status === 'done' && <span className="badge pdf">PDF</span>}
       </h2>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 
 export default function Admin() {
@@ -241,6 +241,8 @@ function Settings() {
 function Backup() {
   const [data, setData] = useState({ items: [] });
   const [msg, setMsg] = useState('');
+  const [importing, setImporting] = useState(false);
+  const fileRef = useRef(null);
   const load = () => api('/backup/list').then(setData).catch(e => setMsg(e.message));
   useEffect(() => { load(); }, []);
 
@@ -265,13 +267,41 @@ function Backup() {
     }
   };
 
+  const importBackup = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!/\.zip$/i.test(file.name)) { alert('Selecione um arquivo .zip de backup do CadBank.'); return; }
+    if (!confirm(`Importar e restaurar o backup "${file.name}"? O banco atual será substituído ao reiniciar o servidor.`)) return;
+    setImporting(true);
+    setMsg('Enviando backup...');
+    try {
+      const fd = new FormData();
+      fd.append('backup', file);
+      const r = await api('/backup/upload-restore', { method: 'POST', body: fd });
+      setMsg(`Backup importado (${r.file}). ${r.message}`);
+      load();
+    } catch (err) {
+      setMsg('Erro: ' + err.message);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <div>
       {msg && <div className="success-msg">{msg}</div>}
       <div className="card mb">
         <h3>Backup manual</h3>
         <p className="muted mb">Gera um .zip com o banco de dados e todos os arquivos. Backups agendados ficam em <code>server/data/backups</code> (mantém os 20 mais recentes).</p>
-        <button onClick={create}>📦 Criar backup agora</button>
+        <div className="row">
+          <button onClick={create}>📦 Criar backup agora</button>
+          <span className="spacer" />
+          <input ref={fileRef} type="file" accept=".zip" style={{ display: 'none' }} onChange={importBackup} />
+          <button className="secondary" disabled={importing} onClick={() => fileRef.current && fileRef.current.click()}>
+            {importing ? 'Enviando...' : '⬆ Importar backup (.zip) e restaurar'}
+          </button>
+        </div>
       </div>
       <div className="card">
         <h3>Backups disponíveis</h3>

@@ -55,11 +55,31 @@ function dwgSignature(buffer) {
   return String.fromCharCode(...head);
 }
 
+// Comandos aceitos pelo prompt do visualizador (mlightcad). O desenho é aberto
+// apenas em memória — nenhum comando altera o arquivo do sistema.
+const VIEWER_COMMANDS = [
+  ['ZOOM', 'Zoom no desenho — opções: Extents (E), All (A), Window (W), Previous (P), Scale (S)'],
+  ['ZOOM E', 'Enquadra todo o conteúdo (extents)'],
+  ['ZOOM A', 'Enquadra os limites do desenho (all)'],
+  ['PAN', 'Desloca a visualização (arrastar com botão do meio também funciona)'],
+  ['REGEN', 'Regenera ( redesenha ) o desenho'],
+  ['UNDO', 'Desfaz a última ação NESTA SESSÃO de visualização'],
+  ['REDO', 'Refaz ação desfeita'],
+  ['SELECT', 'Seleciona entidades na tela'],
+  ['SYSVAR', 'Consulta/altera variáveis de sistema (apenas nesta sessão)'],
+  ['SWITCHBG', 'Alterna fundo claro/escuro do canvas'],
+  ['READINGMODE', 'Alterna modo de leitura (esconde painéis)'],
+  ['CACHEFONT', 'Gerencia cache de fontes (textos do desenho)'],
+  ['LOG', 'Mostra o log de comandos da sessão'],
+  ['ABOUT', 'Sobre o visualizador']
+];
+
 export default function ViewerModal({ url, filename, onClose }) {
   const containerRef = useRef(null);
   const [status, setStatus] = useState('Carregando visualizador...');
   const [error, setError] = useState('');
   const [layoutNotice, setLayoutNotice] = useState(false);
+  const [showCmds, setShowCmds] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -178,10 +198,12 @@ export default function ViewerModal({ url, filename, onClose }) {
           <b>{filename}</b>
           <div className="row">
             {status && <span className="muted">{status}</span>}
+            <button className="secondary" onClick={() => setShowCmds(true)}>⌨ Comandos</button>
             <button className="secondary" onClick={onClose}>Fechar</button>
           </div>
         </div>
         {error && <div className="error-msg">{error}</div>}
+        <div className="notice-msg">⚠ O desenho abre apenas para consulta — qualquer alteração feita aqui (zoom, pan, edição) <b>não será salva</b> no sistema.</div>
         {layoutNotice && (
           <div className="notice-msg">
             Este desenho não tem geometria no modelspace — exibindo o paper space (layout). Use zoom/pan para navegar.
@@ -189,6 +211,25 @@ export default function ViewerModal({ url, filename, onClose }) {
         )}
         <div className="viewer-container" ref={containerRef} />
         <div className="muted mt">Scroll = zoom · Botão do meio = pan · Clique = selecionar</div>
+        {showCmds && (
+          <div className="modal-overlay" onClick={() => setShowCmds(false)}>
+            <div className="modal" style={{ width: 520, maxHeight: '80vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+              <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ margin: 0 }}>⌨ Comandos do visualizador</h2>
+                <button className="secondary" onClick={() => setShowCmds(false)}>✕</button>
+              </div>
+              <p className="muted">Digite o comando no prompt na parte inferior do visualizador e pressione Enter. Opções aparecem como botões acima do prompt. As alterações afetam apenas esta sessão de visualização.</p>
+              <table>
+                <thead><tr><th style={{ width: 130 }}>Comando</th><th>Descrição</th></tr></thead>
+                <tbody>
+                  {VIEWER_COMMANDS.map(([cmd, desc]) => (
+                    <tr key={cmd}><td><code>{cmd}</code></td><td>{desc}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
