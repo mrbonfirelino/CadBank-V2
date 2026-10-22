@@ -48,7 +48,8 @@ export default function Drawings() {
   const [selected, setSelected] = useState([]);
   const [user, setUser] = useState(null);
   const [colConf, setColConf] = useState(null);
-  const [dragIndex, setDragIndex] = useState(null); // { order: [keys], hidden: [keys] }
+  const [dragIndex, setDragIndex] = useState(null);
+  const [dragColKey, setDragColKey] = useState(null); // { order: [keys], hidden: [keys] }
   const [showCols, setShowCols] = useState(false);
   const nav = useNavigate();
 
@@ -95,6 +96,16 @@ export default function Drawings() {
   };
 
   const resetCols = () => saveConf({ order: DEFAULT_ORDER, hidden: [] });
+
+  const reorderHeader = (targetKey) => {
+    if (!dragColKey || dragColKey === targetKey) return;
+    const order = columns.map(c => c.key);
+    const from = order.indexOf(dragColKey);
+    if (from === -1) return;
+    order.splice(from, 1);
+    order.splice(order.indexOf(targetKey), 0, dragColKey);
+    saveConf({ order, hidden: colConf?.hidden || [] });
+  };
 
   const clickSort = (key) => {
     if (sort === key) setDir(d => (d === 'asc' ? 'desc' : 'asc'));
@@ -294,13 +305,25 @@ export default function Drawings() {
         </div>
       )}
 
-      <div className="card table-wrap">
+      <div className="card">
+        <div className="table-wrap">
         <table>
           <thead>
             <tr>
               <th style={{ width: 30 }}><input type="checkbox" checked={selected.length > 0 && selected.length === data.items.length} onChange={toggleAll} /></th>
               {visibleCols.map(c => (
-                <th key={c.key} className="sortable-th" style={{ cursor: 'pointer', whiteSpace: 'nowrap' }} onClick={() => clickSort(c.key)}>
+                <th
+                  key={c.key}
+                  className="sortable-th"
+                  style={{ cursor: 'pointer', whiteSpace: 'nowrap', opacity: dragColKey === c.key ? 0.5 : 1 }}
+                  title="Clique para ordenar; arraste para reordenar a coluna"
+                  draggable
+                  onDragStart={() => setDragColKey(c.key)}
+                  onDragEnd={() => setDragColKey(null)}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => { e.preventDefault(); reorderHeader(c.key); }}
+                  onClick={() => clickSort(c.key)}
+                >
                   {c.label}{sortIcon(c.key)}
                 </th>
               ))}
@@ -320,6 +343,7 @@ export default function Drawings() {
             {!data.items.length && <tr><td colSpan={visibleCols.length + 1} className="muted" style={{ textAlign: 'center', padding: 30 }}>Nenhum desenho encontrado</td></tr>}
           </tbody>
         </table>
+        </div>
         <div className="pagination">
           <span>{data.total} registro(s)</span>
           <label className="muted" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
