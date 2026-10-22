@@ -13,3 +13,8 @@ Thumbs.db
 
 # DWGs grandes (>100MB nao pode no GitHub)
 DWGs para exemplo/PE223002 DWG.DWG
+
+installer/stage/
+installer/Setup-CadBank.exe
+installer/CadBank-V2-Setup.zip
+installer/LEIA-ME.txt
