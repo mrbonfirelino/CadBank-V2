@@ -79,3 +79,7 @@ h3 { margin: 16px 0 10px; }
 .card table th, .card table td { border-right: 1px solid rgba(255,255,255,.06); }
 .card table th:last-child, .card table td:last-child { border-right: none; }
 .card table th:not(:last-child), .card table td:not(:last-child) { padding-right: 12px; }
+
+.table-wrap { overflow-x: auto; max-width: 100%; }
+.table-wrap table { min-width: max-content; }
+.cell-ellipsis { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

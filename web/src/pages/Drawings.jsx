@@ -26,6 +26,7 @@ const ALL_COLS = [...FIELDS, ...EXTRA_COLS];
 const DEFAULT_ORDER = ALL_COLS.map(([k]) => k);
 const LABELS = Object.fromEntries(ALL_COLS);
 const PAGE_SIZES = [10, 20, 30, 40, 50, 100];
+const TEXT_ELLIPSIS_KEYS = ['nome', 'descricao', 'empresa', 'anotacoes', 'desenhista', 'projetista', 'planta', 'os', 'tag'];
 
 const EMPTY = { codigo: '', nome: '', descricao: '', desenhista: '', projetista: '', empresa: '', planta: '', formato_folha: '', tag: '', os: '', anotacoes: '' };
 
@@ -36,7 +37,9 @@ export default function Drawings() {
   const [hasAttachment, setHasAttachment] = useState('');
   const [data, setData] = useState({ total: 0, items: [] });
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(() => {
+    try { return parseInt(localStorage.getItem('cadbank-pageSize'), 10) || 10; } catch { return 10; }
+  });
   const [sort, setSort] = useState('updated_at');
   const [dir, setDir] = useState('desc');
   const [error, setError] = useState('');
@@ -44,7 +47,8 @@ export default function Drawings() {
   const [form, setForm] = useState(EMPTY);
   const [selected, setSelected] = useState([]);
   const [user, setUser] = useState(null);
-  const [colConf, setColConf] = useState(null); // { order: [keys], hidden: [keys] }
+  const [colConf, setColConf] = useState(null);
+  const [dragIndex, setDragIndex] = useState(null); // { order: [keys], hidden: [keys] }
   const [showCols, setShowCols] = useState(false);
   const nav = useNavigate();
 
@@ -112,6 +116,10 @@ export default function Drawings() {
   };
 
   useEffect(() => { load(1, pageSize); setPage(1); }, [sort, dir, pageSize]);
+
+  useEffect(() => {
+    try { localStorage.setItem('cadbank-pageSize', String(pageSize)); } catch { /* ignore */ }
+  }, [pageSize]);
 
   const search = (e) => {
     e?.preventDefault();
@@ -186,22 +194,48 @@ export default function Drawings() {
       </div>
 
       {showCols && (
-        <div className="card mb" style={{ maxWidth: 460 }}>
-          <h3>Colunas da lista</h3>
-          <p className="muted" style={{ marginTop: -6 }}>Marque para exibir e use as setas para reordenar. Fica salvo para o seu usuário.</p>
-          {columns.map(c => (
-            <div className="row" key={c.key} style={{ justifyContent: 'space-between', marginBottom: 4 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input type="checkbox" checked={c.visible} onChange={() => toggleCol(c.key)} />
-                {c.label}
-              </label>
-              <span className="row" style={{ gap: 4 }}>
-                <button type="button" className="secondary" style={{ padding: '2px 8px' }} onClick={() => moveCol(c.key, -1)}>↑</button>
-                <button type="button" className="secondary" style={{ padding: '2px 8px' }} onClick={() => moveCol(c.key, 1)}>↓</button>
-              </span>
+        <div className="modal-overlay" onClick={() => setShowCols(false)}>
+          <div className="modal" style={{ width: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="row" style={{ alignItems: 'center' }}>
+              <h3 style={{ margin: 0, flex: 1 }}>Colunas da lista</h3>
+              <button type="button" onClick={() => setShowCols(false)}>✕</button>
             </div>
-          ))}
-          <button type="button" className="secondary mt" onClick={resetCols}>Restaurar padrão</button>
+            <p className="muted" style={{ marginTop: -6 }}>Marque para exibir e arraste para reordenar. Fica salvo para o seu usuário.</p>
+            {columns.map((c, i) => (
+              <div
+                key={c.key}
+                draggable
+                onDragStart={() => setDragIndex(i)}
+                onDragEnd={() => setDragIndex(null)}
+                onDragOver={e => e.preventDefault()}
+                onDrop={() => {
+                  if (dragIndex === null || dragIndex === i) return;
+                  const order = [...(colConf?.order || [])];
+                  const from = order.indexOf(c.key);
+                  if (from === -1) return;
+                  order.splice(from, 1);
+                  const to = order.indexOf(columns[i].key);
+                  order.splice(to < 0 ? order.length : to, 0, c.key);
+                  saveConf({ order, hidden: colConf?.hidden || [] });
+                  setDragIndex(null);
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px',
+                  border: '1px solid rgba(255,255,255,.12)', borderRadius: 6, marginBottom: 4,
+                  cursor: 'grab', background: dragIndex === i ? 'rgba(255,255,255,.08)' : undefined,
+                  opacity: dragIndex === i ? 0.6 : 1,
+                }}
+              >
+                <span className="muted" style={{ cursor: 'grab' }}>⠿</span>
+                <label style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={c.visible} onChange={() => toggleCol(c.key)} />
+                  {c.label}
+                </label>
+                <span className="muted" style={{ fontSize: 12 }}>{i + 1}º</span>
+              </div>
+            ))}
+            <button type="button" className="secondary mt" onClick={resetCols}>Restaurar padrão</button>
+          </div>
         </div>
       )}
 
@@ -260,7 +294,7 @@ export default function Drawings() {
         </div>
       )}
 
-      <div className="card">
+      <div className="card table-wrap">
         <table>
           <thead>
             <tr>
@@ -276,7 +310,11 @@ export default function Drawings() {
             {data.items.map(d => (
               <tr key={d.id} style={{ cursor: 'pointer' }} onClick={() => nav('/drawings/' + d.id)}>
                 <td onClick={e => e.stopPropagation()}><input type="checkbox" checked={selected.includes(d.id)} onChange={() => toggle(d.id)} /></td>
-                {visibleCols.map(c => <td key={c.key}>{cell(d, c.key)}</td>)}
+                {visibleCols.map(c => (
+                  <td key={c.key} className={TEXT_ELLIPSIS_KEYS.includes(c.key) ? 'cell-ellipsis' : undefined} title={TEXT_ELLIPSIS_KEYS.includes(c.key) ? String(d[c.key] || '') : undefined}>
+                    {cell(d, c.key)}
+                  </td>
+                ))}
               </tr>
             ))}
             {!data.items.length && <tr><td colSpan={visibleCols.length + 1} className="muted" style={{ textAlign: 'center', padding: 30 }}>Nenhum desenho encontrado</td></tr>}
